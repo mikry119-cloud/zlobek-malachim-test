@@ -325,7 +325,7 @@ const hm=iso=>{const d=new Date(iso);return pad(d.getHours())+':'+pad(d.getMinut
 const manualAllowed=()=>{const t=todayStr();return t>=MANUAL_FROM&&t<=MANUAL_UNTIL};
 const atOf=hhmm=>{const [h,mi]=hhmm.split(':');const d=new Date(todayStr()+'T00:00:00');d.setHours(+h,+mi,0,0);return d};
 let DB={};
-async function loadAll(){for(const t of TABLES) DB[t]=await Sync.load(t);
+async function loadAll(){const to=(pr,t)=>Promise.race([pr,new Promise(r=>setTimeout(()=>r(LS(t)),10000))]);const res=await Promise.allSettled(TABLES.map(t=>to(Sync.load(t).catch(()=>LS(t)),t)));TABLES.forEach((t,i)=>DB[t]=res[i].status==='fulfilled'&&Array.isArray(res[i].value)?res[i].value:LS(t));
   if(sb){const {error}=await sb.from('test_links').select('id').limit(1);localStorage.setItem('zl_links_remote',error?'0':'1');}
   seedLinks();
   if(sb){const a=await sb.from('test_outdoor').select('custom_plan').limit(1);if(!a.error)LOCAL_ONLY.test_outdoor=[];const b=await sb.from('test_attendance').select('manual').limit(1);if(!b.error)LOCAL_ONLY.test_attendance=[]}
@@ -712,5 +712,6 @@ async function sendUwaga(){const b=utxt.value.trim();if(!b)return toast('Wpisz t
 const _cz=SCR.czat;SCR.czat=()=>{const r=_cz();if(!thread&&!isGuest()){const u=pUnreadStaff(),ug=u.filter(m=>m.urgent).length;r[2]=`<button class="card tile2 thr ${ug?'urgc':''}" onclick="go('rodzice')"><span class="kini">👪</span><span class="kcol"><b class="kn">${ug?'🚨 ':''}Rodzice</b><span class="mm">${ug?ug+' pilne':'czat z rodzicami'}</span></span>${u.length?`<i class="bd">${u.length}</i>`:''}</button>`+r[2]}return r};
 const _notes=notes;notes=function(){const n=_notes();if(!S.code||isPar()||isGuest())return n;pUnreadStaff().filter(m=>m.urgent).forEach(m=>n.unshift(`🚨 PILNE od rodzica (${kidById(m.child_id).pseudonym}): ${m.body.slice(0,80)}`));if(isAdm()&&inboxUnread())n.unshift(`✉️ Uwagi: ${inboxUnread()} nowe`);return n};
 
-(async()=>{applyTheme();await loadAll();Sync.subscribe();route()})();
+(async()=>{applyTheme();for(const t of TABLES)DB[t]=LS(t);try{route()}catch(e){console.warn('render przed danymi',e)} // pokaż logowanie od razu, z danymi z pamięci
+  try{await loadAll()}catch(e){console.warn('loadAll',e)}try{Sync.subscribe()}catch(e){console.warn('subscribe',e)}route()})();
 </script></body></html>
